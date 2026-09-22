@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>🛕 পূজো পরিক্রম – Kolkata Pandal Mapper</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..600;1,14..32,500&family=Baloo+Da+2:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:#f4f2ef; height:100vh; overflow:hidden; color:#1c1c1e; }
+    #map { height:100vh; width:100vw; background:#e5e3df; position:relative; z-index:1; }
+
+    /* ============================================================
+       Zoom control — pushed below the brand pill so it's always
+       visible (previously hidden behind .brand-glass).
+       ============================================================ */
+    .leaflet-top.leaflet-left {
+      margin-top: 68px;
+    }
+    .leaflet-control-zoom { border:none !important; box-shadow:0 4px 12px rgba(0,0,0,0.15) !important; border-radius:12px !important; overflow:hidden; }
+    .leaflet-control-zoom a { background:#ffffff !important; color:#1c1c1e !important; border:none !important; padding:8px 12px !important; font-weight:300 !important; }
+    .leaflet-control-zoom a:hover { background:#f0f0f0 !important; }
+
+    .leaflet-popup-content-wrapper { border-radius:16px !important; box-shadow:0 12px 40px rgba(0,0,0,0.2) !important; background:rgba(255,255,255,0.97) !important; backdrop-filter:blur(4px) !important; border:1px solid rgba(255,255,255,0.3) !important; }
+    .leaflet-popup-tip { background:rgba(255,255,255,0.97) !important; }
+    .leaflet-popup-content { font-family:'Inter',sans-serif; font-size:0.9rem; line-height:1.5; min-width:230px; padding:4px 0; }
+    .leaflet-popup-content strong { color:#d32f2f; font-weight:600; font-size:1.05rem; }
+    .leaflet-popup-content .line-chip { display:inline-block; color:#fff; font-size:0.65rem; font-weight:700; padding:2px 10px; border-radius:40px; margin-top:4px; }
+    .leaflet-popup-content .badge-verified { display:inline-block; font-size:0.65rem; font-weight:700; padding:2px 9px; border-radius:40px; margin-top:5px; }
+    .leaflet-popup-content .badge-verified.yes { background:#e6f4ea; color:#1e7e34; }
+    .leaflet-popup-content .badge-verified.no { background:#fff4e5; color:#b26a00; }
+    .route-chip { display:inline-block; background:#ff9500; color:#fff; padding:2px 8px; border-radius:10px; margin:2px 4px 0 0; font-weight:600; font-size:0.68rem; }
+
+    .nav-options { margin-top:10px; padding-top:10px; border-top:1px solid #e5e5ea; }
+    .nav-options-title { font-size:0.72rem; color:#6c6c70; font-weight:600; margin-bottom:7px; letter-spacing:0.2px; }
+    .nav-btn-row { display:flex; gap:6px; flex-wrap:wrap; }
+    .nav-btn {
+      flex:1 1 auto; min-width:62px; padding:8px 10px;
+      border:1.5px solid #d1d1d6; background:#fff; border-radius:12px;
+      font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:600;
+      color:#1c1c1e; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; gap:5px;
+      transition:0.15s ease;
+    }
+    .nav-btn i { font-size:0.85rem; color:#6c6c70; }
+    .nav-btn:hover { background:#f2f2f7; border-color:#c6c6c8; }
+    .nav-btn:active { transform:scale(0.96); }
+    .nav-btn-car { background:#1a73e8; color:#fff; border-color:#1a73e8; }
+    .nav-btn-car i { color:#fff; }
+    .nav-btn-car:hover { background:#1557b0; border-color:#1557b0; }
+
+    .route-info-banner {
+      position:absolute; top:80px; left:50%; transform:translateX(-50%);
+      z-index:800;
+      background:rgba(26,115,232,0.96);
+      color:#fff; padding:9px 18px; border-radius:24px;
+      font-size:0.78rem; font-weight:500;
+      box-shadow:0 10px 30px rgba(26,115,232,0.35);
+      display:none; align-items:center; gap:12px; max-width:92vw;
+    }
+    .route-info-banner.visible { display:flex; }
+    .route-info-banner.err { background:rgba(211,47,47,0.96); box-shadow:0 10px 30px rgba(211,47,47,0.35); }
+    .route-info-banner i { font-size:0.95rem; }
+    .route-info-banner .route-clear {
+      background:rgba(255,255,255,0.2); border:none; color:#fff;
+      padding:4px 10px; border-radius:20px; cursor:pointer;
+      font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:600;
+    }
+    .route-info-banner .route-clear:hover { background:rgba(255,255,255,0.3); }
+
+    .floating-top { position:absolute; top:16px; left:16px; right:16px; z-index:1000; display:flex; align-items:center; gap:12px; pointer-events:none; flex-wrap:wrap; }
+    .floating-top>* { pointer-events:auto; }
+
+    .brand-glass {
+      background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+      padding:8px 18px 8px 14px; border-radius:40px; box-shadow:0 8px 24px rgba(0,0,0,0.12);
+      display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,0.6); flex-shrink:0;
+    }
+    .brand-glass i { color:#d32f2f; font-size:20px; }
+
+    /* Bengali brand title — cool rounded display font */
+    .brand-glass .brand-title {
+      font-family:'Baloo Da 2', 'Hind Siliguri', 'Inter', sans-serif;
+      font-weight:700;
+      font-size:1.2rem;
+      color:#1c1c1e;
+      letter-spacing:0.2px;
+      line-height:1.05;
+      background:linear-gradient(135deg, #d32f2f 0%, #7a1420 100%);
+      -webkit-background-clip:text;
+      background-clip:text;
+      -webkit-text-fill-color:transparent;
+      white-space:nowrap;
+    }
+    .brand-glass small { font-weight:400; font-size:0.7rem; color:#6c6c70; background:#f0f0f0; padding:2px 10px; border-radius:40px; margin-left:4px; }
+
+    .sidebar-toggle-glass { background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.6); border-radius:40px; padding:8px 14px; font-size:1.1rem; box-shadow:0 8px 24px rgba(0,0,0,0.12); cursor:pointer; color:#1c1c1e; transition:0.2s; display:flex; align-items:center; gap:6px; }
+    .sidebar-toggle-glass:hover { background:rgba(255,255,255,0.95); }
+    .search-glass { flex:1; min-width:160px; background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.6); border-radius:40px; padding:8px 18px; box-shadow:0 8px 24px rgba(0,0,0,0.12); display:flex; align-items:center; gap:10px; }
+    .search-glass i { color:#8e8e93; font-size:0.9rem; }
+    .search-glass input { border:none; background:transparent; font-family:'Inter',sans-serif; font-size:0.9rem; width:100%; padding:4px 0; outline:none; color:#1c1c1e; }
+    .search-glass input::placeholder { color:#8e8e93; font-weight:400; }
+    .search-glass select { border:none; background:transparent; font-family:'Inter',sans-serif; font-weight:500; font-size:0.8rem; color:#1c1c1e; outline:none; cursor:pointer; padding:4px 0; border-left:1px solid #d1d1d6; padding-left:12px; }
+
+    .sidebar { position:absolute; top:80px; right:16px; bottom:90px; width:320px; background:rgba(255,255,255,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.5); display:flex; flex-direction:column; overflow:hidden; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease; z-index:500; opacity:1; }
+    .sidebar.hidden { transform:translateX(360px); opacity:0; pointer-events:none; }
+    .sidebar-header { padding:18px 20px 12px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; justify-content:space-between; align-items:center; font-weight:600; color:#1c1c1e; flex-shrink:0; }
+    .sidebar-header .count { background:#d32f2f; color:#fff; padding:2px 14px; border-radius:40px; font-size:0.75rem; font-weight:500; }
+    .sidebar-list { flex:1; overflow-y:auto; padding:8px 4px 8px 12px; }
+    .sidebar-list::-webkit-scrollbar { width:3px; }
+    .sidebar-list::-webkit-scrollbar-thumb { background:#c6c6c8; border-radius:10px; }
+
+    .pandal-item { padding:12px 16px; border-radius:16px; margin-bottom:4px; cursor:pointer; transition:0.15s ease; display:flex; flex-direction:column; gap:2px; position:relative; border:1px solid transparent; }
+    .pandal-item:hover { background:#f2f2f7; border-color:#e5e5ea; }
+    .pandal-item.active { background:#fce8e6; border-color:#d32f2f; }
+    .pandal-item .p-name { font-weight:600; color:#1c1c1e; font-size:0.9rem; padding-right:50px; }
+    .pandal-item .p-loc { font-size:0.78rem; color:#6c6c70; }
+    .pandal-item .p-zone { position:absolute; right:12px; top:12px; background:#f2f2f7; padding:2px 10px; border-radius:40px; font-size:0.65rem; font-weight:600; color:#3a3a3c; }
+    .pandal-item .p-road { font-size:0.72rem; color:#8e8e93; font-style:italic; margin-top:2px; }
+    .pandal-item .p-flag { font-size:0.65rem; color:#b26a00; margin-top:2px; }
+    .no-results { padding:40px 20px; text-align:center; color:#8e8e93; font-size:0.9rem; }
+
+    .bottom-glass { position:absolute; bottom:28px; left:50%; transform:translateX(-50%); z-index:600; background:rgba(255,255,255,0.88); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); padding:8px 12px; border-radius:60px; box-shadow:0 12px 40px rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.6); display:flex; align-items:center; gap:4px; flex-wrap:nowrap; pointer-events:auto; max-width:94vw; overflow-x:auto; }
+    .bottom-glass::-webkit-scrollbar { display:none; }
+    .bottom-glass button { background:transparent; border:none; padding:8px 14px; border-radius:40px; font-weight:500; font-size:0.78rem; color:#3a3a3c; cursor:pointer; transition:0.2s ease; display:flex; align-items:center; gap:6px; font-family:'Inter',sans-serif; white-space:nowrap; flex-shrink:0; }
+    .bottom-glass button i { font-size:0.95rem; color:#6c6c70; }
+    .bottom-glass button:hover { background:rgba(0,0,0,0.05); }
+    .bottom-glass button.active-toggle { background:#1c1c1e; color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.25); }
+    .bottom-glass button.active-toggle i { color:#fff; }
+    .bottom-glass .divider { width:1px; height:28px; background:#d1d1d6; margin:0 4px; flex-shrink:0; }
+    #nearbyBtn { background:#d32f2f !important; color:#fff !important; font-weight:600; }
+    #nearbyBtn i { color:#fff !important; }
+    #nearbyBtn:hover { background:#b71c1c !important; }
+
+    .legend-glass { position:absolute; top:80px; left:16px; z-index:500; background:rgba(255,255,255,0.9); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.12); border:1px solid rgba(255,255,255,0.6); padding:10px 14px; font-size:0.7rem; display:none; flex-direction:column; gap:5px; max-width:190px; }
+    .legend-glass.visible { display:flex; }
+    .legend-glass .lg-title { font-weight:700; font-size:0.72rem; color:#1c1c1e; margin-bottom:2px; }
+    .legend-glass .lg-row { display:flex; align-items:center; gap:7px; color:#3a3a3c; }
+    .legend-glass .lg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+    .data-quality-banner {
+      position:absolute; bottom:90px; left:50%; transform:translateX(-50%); z-index:600;
+      background:rgba(255,244,229,0.96); border:1px solid #f0c36d; color:#7a4a00;
+      padding:7px 34px 7px 16px; border-radius:14px; font-size:0.72rem; max-width:90vw; text-align:center;
+      box-shadow:0 8px 20px rgba(0,0,0,0.15); display:none;
+    }
+    .data-quality-banner.visible { display:block; }
+    .data-quality-banner .close-dq {
+      position:absolute; top:6px; right:8px;
+      background:none; border:none; cursor:pointer;
+      color:#7a4a00; font-size:0.95rem; font-weight:700;
+      line-height:1; padding:2px 6px; border-radius:50%;
+      font-family:'Inter',sans-serif;
+    }
+    .data-quality-banner .close-dq:hover { background:rgba(122,74,0,0.15); }
+
+    .pandal-pin { width:32px; height:32px; background:#d32f2f; border-radius:50% 50% 50% 0; transform:rotate(-45deg); box-shadow:0 6px 16px rgba(211,47,47,0.5); border:2px solid #ffffff; display:flex; align-items:center; justify-content:center; }
+    .pandal-pin.approx { background:#e08a1e; box-shadow:0 6px 16px rgba(224,138,30,0.5); }
+    .pandal-pin .emoji-wrap { transform:rotate(45deg); font-size:18px; line-height:1; margin-left:2px; margin-top:2px; }
+
+    .transit-dot { width:22px; height:22px; border-radius:50%; border:2px solid #fff; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:#fff; }
+    .transit-dot.train { background:#5d4037; }
+    .transit-dot.bus { background:#ff9500; }
+
+    .marker-cluster { background:rgba(211,47,47,0.2) !important; border:none !important; }
+    .marker-cluster div { background:#d32f2f !important; color:#fff !important; font-weight:600 !important; font-family:'Inter',sans-serif !important; box-shadow:0 4px 16px rgba(211,47,47,0.4) !important; border:2px solid #fff !important; }
+
+    @media (max-width:900px) {
+      .leaflet-top.leaflet-left { margin-top: 62px; }
+      .sidebar { width:300px; right:12px; top:76px; bottom:84px; }
+      .sidebar.hidden { transform:translateX(320px); }
+      .bottom-glass { padding:6px 8px; gap:2px; bottom:16px; width:95%; justify-content:flex-start; border-radius:40px; }
+      .bottom-glass button { padding:6px 10px; font-size:0.68rem; }
+      .bottom-glass button i { font-size:0.8rem; }
+      .floating-top { top:12px; left:12px; right:12px; gap:8px; }
+      .brand-glass .brand-title { font-size:1.05rem; }
+      .brand-glass small { display:none; }
+      .search-glass { padding:6px 14px; min-width:120px; }
+      .search-glass input { font-size:0.8rem; }
+      .search-glass select { font-size:0.7rem; padding-left:8px; }
+      .sidebar-toggle-glass span { display:none; }
+      .legend-glass { top:70px; }
+      .data-quality-banner { bottom:78px; }
+      .route-info-banner { top:70px; font-size:0.72rem; padding:8px 14px; }
+    }
+    @media (max-width:500px) {
+      .leaflet-top.leaflet-left { margin-top: 58px; }
+      .sidebar { width:100%; right:0; top:70px; bottom:80px; border-radius:20px 20px 0 0; }
+      .sidebar.hidden { transform:translateY(100%); }
+      .bottom-glass button { padding:5px 9px; font-size:0.62rem; }
+      .brand-glass { padding:6px 12px; gap:7px; }
+      .brand-glass i { font-size:16px; }
+      .brand-glass .brand-title { font-size:0.95rem; }
+      .search-glass input { font-size:0.7rem; }
+      .legend-glass { max-width:150px; padding:8px 10px; }
+      .data-quality-banner { bottom:74px; font-size:0.66rem; padding:6px 30px 6px 12px; }
+      .route-info-banner { top:66px; font-size:0.68rem; padding:7px 12px; gap:8px; }
+      .leaflet-popup-content { min-width:200px !important; }
+      .nav-btn { padding:7px 8px; font-size:0.68rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <div class="floating-top">
+    <div class="brand-glass">
+      <i class="fas fa-dharmachakra"></i>
+      <span class="brand-title">পূজো পরিক্রম</span>
+      <small>Kolkata '25</small>
+    </div>
+    <div class="search-glass">
+      <i class="fas fa-search"></i>
+      <input type="text" id="searchInput" placeholder="Search pandal or locality..." />
+      <select id="zoneFilter">
+        <option value="all">All Zones</option>
+        <option value="I">Zone I · North</option>
+        <option value="II">Zone II · South</option>
+        <option value="III">Zone III · Port</option>
+        <option value="IV">Zone IV · Suburban</option>
+      </select>
+    </div>
+    <button class="sidebar-toggle-glass" id="sidebarToggle">
+      <i class="fas fa-list-ul"></i>
+      <span>List</span>
+    </button>
+  </div>
+
+  <div class="route-info-banner" id="routeInfoBanner">
+    <i class="fas fa-spinner fa-spin" id="routeInfoIcon"></i>
+    <span id="routeInfoText"></span>
+    <button class="route-clear" id="routeClearBtn" style="display:none;"><i class="fas fa-times"></i> Clear</button>
+  </div>
+
+  <div class="legend-glass" id="metroLegend">
+    <div class="lg-title">🚇 Metro Lines</div>
+    <div class="lg-row"><span class="lg-dot" style="background:#007aff;"></span>Blue · Dakshineswar↔Kavi Subhash</div>
+    <div class="lg-row"><span class="lg-dot" style="background:#00b050;"></span>Green · Howrah Maidan↔Sector V</div>
+    <div class="lg-row"><span class="lg-dot" style="background:#9c27b0;"></span>Purple · Joka↔Majerhat</div>
+    <div class="lg-row"><span class="lg-dot" style="background:#ff6d00;"></span>Orange · Kavi Subhash↔Beleghata</div>
+    <div class="lg-row"><span class="lg-dot" style="background:#ffc400;"></span>Yellow · Noapara↔Jai Hind</div>
+    <div class="lg-row" style="margin-top:4px;"><span class="lg-dot" style="background:#d32f2f;"></span>Pandal (geocoded)</div>
+    <div class="lg-row"><span class="lg-dot" style="background:#e08a1e;"></span>Pandal (approx.)</div>
+    <div class="lg-row" style="margin-top:4px;"><span class="lg-dot" style="background:#ff9500;"></span>Bus Stop (tap for routes)</div>
+  </div>
+
+  <div class="data-quality-banner" id="dqBanner"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span>🛕 All Pandals</span>
+      <span class="count" id="pandalCount">0</span>
+    </div>
+    <div class="sidebar-list" id="pandalList"></div>
+  </aside>
+
+  <div class="bottom-glass" id="bottomBar">
+    <button id="toggleMetro"><i class="fas fa-subway"></i> Metro</button>
+    <button id="toggleTrain"><i class="fas fa-train"></i> Train</button>
+    <button id="toggleBus"><i class="fas fa-bus"></i> Bus</button>
+    <div class="divider"></div>
+    <button id="nearbyBtn"><i class="fas fa-location-dot"></i> Nearby</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+
+  <script>
+    // ================================================================
+    // 1. PANDAL DATA — 217 entries
+    // ================================================================
+    const RAW_PANDALS = [["I", "Cossipore", "Bangali Sangha", "near K C Chatterjee St"], ["I", "Cossipore", "Cossipore Shanti Sangha", "Cossipore"], ["I", "Paikpara", "Paikpara 15 Pally", "Paikpara"], ["I", "Paikpara", "Chowdar Pally", "Paikpara"], ["I", "Tala", "Tala Park (Sarbojanin)", "Tala Park"], ["I", "Belgachia", "Belgachia Olaichandi", "Belgachia"], ["I", "Belgachia", "Belgachia Sadharan", "Belgachia Road"], ["I", "Belgachia", "Pallyshree Sarbojanin", "Belgachhia Road"], ["I", "Belgachia", "Uday Sangha", "Belgachhia"], ["I", "Bagbazar", "Bagbazar Sarbojanin", "Bagbazar Street"], ["I", "Bagbazar", "Bagbazar Pally Puja (Ward-1)", "Bagbazar"], ["I", "Bagbazar", "Sadharan Durgotsab", "J.M. Park, Bagbazar"], ["I", "Shyambazar", "Shyam Square", "Shyam Bazar"], ["I", "Shyambazar", "Friends Union", "near Paul Street"], ["I", "Shyambazar", "Shyam Bazar Nabin Sangha", "Shyam Bazar Crossing"], ["I", "Shyambazar", "United Club", "Arabinda Sarani"], ["I", "Ultadanga", "Telenga Bagan", "Ultadanga Main Road"], ["I", "Ultadanga", "Gouribari Sarbojanin", "Raja Manindra Road area"], ["I", "Kumartuli", "Kumartuli Park", "Kumartuli"], ["I", "Kumartuli", "9-Er Pally Sarbojanin", "near Kumartuli"], ["I", "Sovabazar", "Sovabazar Benatola (20 Pally)", "M.D. Road"], ["I", "Ahiritola", "Ahiritola Jubak Brindo", "Ahiritola"], ["I", "Ahiritola", "Maitra Sangha", "B.K. Paul Avenue"], ["I", "Ahiritola", "Nabin Sarkar Sarbojanin", "Aurobindo Sarani"], ["I", "Nimtala", "Nimtala Sarbojanin", "Nimtala Ghat Street"], ["I", "Nimtala", "Pathuria Ghata 5 Pally", "Nimtala Ghat Street"], ["I", "Kankurgachi", "Mitali Kankurgachi", "Kankurgachi"], ["I", "Beadon St", "Rabindra Kanan", "Beadon Street"], ["I", "Beadon St", "Hari Ghosh St (Sarbojanin)", "Hari Ghosh Street"], ["I", "Manicktala", "Trinayanee", "R.D. Street"], ["I", "Jorasanko", "Jorasanko Sadharan Durgotsab Samiti", "near Bidhan Sarani"], ["I", "College St", "Simla Bayam Samiti", "near College Square"], ["I", "College St", "Chorebagan Sarbojanin", "near College Square"], ["I", "College St", "Chalta Bagan", "R.G. Kar Road"], ["I", "College St", "37 Pally", "Muktaram Babu Street"], ["I", "College St", "Ram Mohan Sammilani", "Raja Ram Mohan Roy Sarani"], ["I", "College St", "College Square", "College Street"], ["I", "College St", "Md. Ali Park", "M.G. Road"], ["I", "Sealdah", "Sealdah Athletic Club", "near Sealdah Station"], ["I", "Bowbazar", "Subodh Mullick Square", "near B.B. Ganguly Street"], ["I", "Bowbazar", "Santosh Mitra Square", "Creek Row"], ["I", "Beliaghata", "Sharir Sanghathan Samiti", "Beliaghata Main Road"], ["I", "Taltala", "Taltala Children's Park (14 Pally)", "Taltala"], ["I", "Taltala", "Taltala Sarbojanin Lord Para", "Taltala"], ["I", "Taltala", "24 Pally Udayan Sangha", "near Chittaranjan Hospital"], ["II", "Park Street", "Elliot Park", "Park Street area"], ["II", "Park Circus", "57/58 Pally Sarbojanin Durgotsab", "Park Circus"], ["II", "Bhowanipur", "Chakraberia Sarbojanin", "Lala Lajpat Rai Sarani"], ["II", "Bhowanipur", "Gokhale Sporting", "S.N. Pandit Street"], ["II", "Bhowanipur", "75 Pally", "S.N. Pandit Street"], ["II", "Bhowanipur", "22 Pally", "near Ch. Madhab Road"], ["II", "Bhowanipur", "Harish Park Byayam Samiti (23 Pally)", "Hazra Park"], ["II", "Bhowanipur", "Hazra Park Durgotsab", "Hazra Road"], ["II", "Bhowanipur", "Bhowanipur Durgotsab", "Ramesh Mitra Road"], ["II", "Bhowanipur", "Maha Puja Samity", "Ramesh Mitra Road"], ["II", "Ballygunge", "AAEI", "P. Barua Sarani"], ["II", "Ballygunge", "Padmapukur Barwari", "Chakraberia Road"], ["II", "Ballygunge", "Padmapukur Youth Association", "Chakraberia Road"], ["II", "Ballygunge", "Maddox Square", "Ritchie Road"], ["II", "Ballygunge", "Adi Ballygunge Sarbojanin", "Ballygunge Circular Road"], ["II", "Ballygunge", "21 Pally", "Bondel Road"], ["II", "Ballygunge", "Durga Bari", "near Bondel Gate"], ["II", "Ballygunge", "Phalguni Sangha", "near Bondel Road"], ["II", "Dover Lane", "Tridhara Sammilani", "Panditya Road"], ["II", "Dover Lane", "Singhi Park Sarbojanin", "Dover Lane"], ["II", "Dover Lane", "Hindustan Club", "Dover Lane"], ["II", "Dover Lane", "Dakshin Kalikata Sarbojanin", "Nehri Road"], ["II", "Dover Lane", "Matri Mandir", "Bepin Pal Road"], ["II", "Dover Lane", "64 Pally Durga Puja", "Monohar Pukur Road"], ["II", "Gariahat", "Ekdalia Evergreen", "Gariahat"], ["II", "Gariahat", "Bijan Setu", "Gariahat"], ["II", "Gariahat", "Gariahat Market", "Gariahat"], ["II", "Lake Rd", "Adi Lake Palli", "Jatin Das Road"], ["II", "Lake Rd", "Ballygunge Cultural", "Sarat Chatterjee Park"], ["II", "Lake Rd", "Hindustan Park Sarbojanin", "Hindustan Road"], ["II", "Lake Rd", "Samajsebi", "Lake Road"], ["II", "Lake Rd", "Trikon Park", "D.P.S. Road"], ["II", "Lake Gardens", "Mudiali Club", "near Lake Gardens"], ["II", "Lake Gardens", "Shib Mandir", "Lake Gardens"], ["II", "Lake Gardens", "Sanghati Puja Samiti", "Lake Gardens"], ["II", "Lake Gardens", "Lake Gardens People's Association", "Prince Anwar Shah Road"], ["II", "Jodhpur Park", "95 Pally", "Jodhpur Park"], ["II", "Jodhpur Park", "Pally Mangal", "Jodhpur Park"], ["II", "Jodhpur Park", "Jodhpur Park (Sarbojanin)", "Jodhpur Park"], ["II", "Chetla", "Chetla Agrani", "Chetla"], ["II", "Tollygunge Circular Rd", "Sarodiya Sammilani", "near KMC Park"], ["II", "Tollygunge Circular Rd", "Nabapalli Sangha", "Tollygunge Circular Road"], ["II", "Tollygunge Circular Rd", "Suruchi Sangha", "Tollygunge Circular Road"], ["II", "Kalighat", "Kalighat Milan Sangha", "Kali Temple Road"], ["II", "Kalighat", "Forward Club", "Kalighat"], ["II", "Kalighat", "Jana Mangal Samity", "near Kali Temple"], ["II", "Kalighat", "66 Pally / Ashar Sangha", "Sadananda Road"], ["III", "Garden Reach", "Udayan", "Garden Reach Road"], ["III", "Khidderpore", "Khidderpore Palli Saradiya", "Hem Chandra Road"], ["III", "Khidderpore", "Nabarag", "Mohan Ch. Road"], ["III", "Khidderpore", "26 Pally", "Kabitirtha Sarani"], ["III", "Khidderpore", "Kabitirtha Saradotsav", "Kabitirtha Park"], ["III", "Khidderpore", "Milan Sangha", "Ramkamal Street"], ["III", "Khidderpore", "75 Pally (Port)", "Karl Marx Sarani"], ["III", "Khidderpore", "74 Pally", "Mansatala Lane"], ["III", "Khidderpore", "Khidderpore Sarbojanin", "Dr Sudhir Bose Road"], ["III", "Khidderpore", "25 Pally", "Ekbalpur Road"], ["IV", "Alipore", "Alipore Sarbojanin", "Judges Court Road"], ["IV", "Alipore", "Sarbojanin Durgotsab (Akalbodhan)", "Alipore Road"], ["IV", "Alipore", "Kolahol", "Alipore Road"], ["IV", "Bhowanipur/Rashbehari", "Golmath Durgapuja Samity", "Rup Chand Mukherjee Lane"], ["IV", "Bhowanipur/Rashbehari", "76 Pally Sarbojanin", "Judges Court Road"], ["IV", "Bhowanipur/Rashbehari", "Shree Sangha", "S.P. Mukherjee Road"], ["IV", "Bhowanipur/Rashbehari", "64 Pally", "Monohar Pukur Road"], ["IV", "Kalighat", "Golden Arrow Club", "near Tolly's Nullah"], ["IV", "Rashbehari", "Lake Market Basanta Sangha", "Rash Behari Avenue"], ["IV", "Rashbehari", "Dakshinapan Sarbojanin", "near Dakshinapan"], ["IV", "Rashbehari", "Poddar Nagar Sarbojanin", "Poddar Nagar"], ["IV", "Tollygunge", "Bangur", "Tollygunge Circular Road"], ["IV", "Tollygunge", "Suktara Sangha", "B.L. Saha Road"], ["IV", "Tollygunge", "Atlanta", "near Golf Garden"], ["IV", "Tollygunge", "Golf Green Sarodotsab", "Golf Green"], ["IV", "Tollygunge", "Bharat Mata", "Golf Garden area"], ["IV", "Regent Park", "Regent Park Housing / Udayan Sangha", "Raja Subodh Mullick Road"], ["IV", "Regent Park", "Pallishree Sarbojanin", "Raipur Road East"], ["IV", "Regent Park", "Bhatri Milan Sangha", "Raipur Road East"], ["IV", "Netajinagar", "Netajinagar PS area Sarbojanin", "Netajinagar"], ["IV", "Naktala", "Naktala Sammilani Club Padma-Shree", "Naktala"], ["IV", "Naktala", "Gharana", "Naktala"], ["IV", "Naktala", "Netaji Jatiya Sebadal", "Naktala"], ["IV", "Naktala", "Naktala Udayan Sangha (45)", "Naktala"], ["IV", "Naktala", "Ranikuti (Sarbojanin)", "Ranikuti"], ["IV", "Karunamoyee", "Sodepur Pragati Sangha", "Karunamoyee"], ["IV", "Haridevpur", "Haridevpur (Sarbojanin)", "Haridevpur"], ["IV", "Haridevpur", "Vivekananda Park", "Haridevpur"], ["IV", "Haridevpur", "Ajeyo Sanghati", "Haridevpur"], ["IV", "Putiary", "97 Pally Bharat Mata", "M.G. Road"], ["IV", "Putiary", "Putiary Club", "Putiary"], ["IV", "Bansdroni", "Moore Avenue Puja Committee", "Chandi Ghosh Road"], ["IV", "Bansdroni", "Bansdroni Sanat Sangha", "Bansdroni"], ["IV", "Regent Park", "Regent Park PS area", "Tolly's Nullah"], ["IV", "Boral", "Pancha Durga", "Boral"], ["IV", "Boral", "Kheyali Sangha", "Boral"], ["IV", "Boral", "Boral Sukanta Sangha", "Boral"], ["IV", "Kamalgachi", "Kamalgachi More area", "towards Narendrapur & Sonarpur"], ["IV", "N.R. Avenue", "Sahapur Sarbojanin", "N.R. Avenue"], ["IV", "Behala", "Behala Young", "S.N. Roy Road"], ["IV", "Behala", "Behala 29 Pally", "S.N. Roy Road"], ["IV", "Behala", "Nandana Yuba Sangha", "S.N. Roy Road"], ["IV", "Behala", "Mitra Sangha", "Behala"], ["IV", "Behala", "Mitali Sangha", "Behala"], ["IV", "Behala", "Behala Shree Sangha", "Roy Bahadur Road"], ["IV", "Behala", "Behala 11 Pally Youth Association", "B.L. Saha Road"], ["IV", "Behala", "Netaji Subhas Road Sarbojanin", "Netaji Subhas Road"], ["IV", "Behala", "Netaji Sangha Bakultala", "Arcadia"], ["IV", "Behala", "Fakir Para Road Sarbojanin", "Fakir Para Road"], ["IV", "Behala", "Behala Chowrasta", "Biren Roy Road West"], ["IV", "Behala", "Bhupen Roy Road Pragati Sangha", "Bhupen Roy Road"], ["IV", "Behala", "Nabalila Para United Club", "Behala"], ["IV", "Behala", "Jagarani", "Behala"], ["IV", "Behala", "Player's Corner", "Behala"], ["IV", "Behala", "Janakalyan", "Santosh Roy Road"], ["IV", "Barisha", "Bakultala Sarbojanin", "Ho Chi Minh Sarani"], ["IV", "Barisha", "Natunpara Sarbojanin", "Barisha"], ["IV", "Barisha", "Barisha Yuva Brinda", "Barisha"], ["IV", "Barisha", "Barisha Nabin Sangha", "D.H. Road"], ["IV", "Barisha", "Bhola Maheshwartala Sarbojanin", "Barisha"], ["IV", "Barisha", "Pashim Barisha Housing Complex", "Barisha"], ["IV", "Barisha", "Udayan Pally", "Barisha"], ["IV", "Barisha", "Barisha Club", "Barisha"], ["IV", "Barisha", "Barisha Netaji Sangha", "James Long Sarani"], ["IV", "Barisha", "Barisha Tarun Tirtha", "Barisha"], ["IV", "Barisha", "Uttar Barisha Adarsha Samity", "Barisha"], ["IV", "Barisha", "Barisha Dakshin", "Motilal Gupta Road"], ["IV", "Barisha", "Sitalatala Kishore Sangha", "Barisha"], ["IV", "Barisha", "Amar Deep Sangha", "Ram Mohan Roy Road"], ["IV", "Barisha", "Vivekananda Sporting", "Barisha"], ["IV", "Thakurpukur", "Tapoban", "Chandi Ghosh Road"], ["IV", "Thakurpukur", "Milan Sangha", "Chandi Ghosh Road"], ["IV", "Thakurpukur", "Nabin Sathi Club", "Mahatma Gandhi Road"], ["IV", "Thakurpukur", "Bratachari Gram Sarbojonin", "M.G. Road"], ["IV", "James Long Sarani", "Diamond Park Sarbojonin", "James Long Sarani"], ["IV", "Parnashree", "Parnashree Palli", "Budge Budge Road"], ["IV", "Parnashree", "Naskarpur Sarbojanin", "Parnashree"], ["IV", "Parnashree", "Sakuntala Park", "Parnashree"], ["IV", "Parnashree", "Netaji Sangha", "Evergreen Club area"], ["IV", "Parnashree", "Evergreen Club", "Parnashree"], ["IV", "Ballygunge/EM Bypass", "Ballygunj Purbapally", "R.B. Avenue"], ["IV", "Ballygunge/EM Bypass", "Gariahat Ballygunj", "Gariahat Road"], ["IV", "Kasba", "Kasba Nabodaya Sangha", "Kasba"], ["IV", "Kasba", "Rajdanga Sangha", "Kasba"], ["IV", "Kasba", "Deshbandhu Boy's", "Bose Pukur"], ["IV", "Kasba", "Tal Bagan", "near Bose Pukur"], ["IV", "Kasba", "Sitala Mandir", "near Kasba"], ["IV", "Kasba", "Kasba Desbandhu", "Kasba"], ["IV", "Garfa", "Ramlal Bazar Sarbojanin", "Garfa Main Road"], ["IV", "Garfa", "Purbachal Sarbojanin", "R.K. Chatterjee Road"], ["IV", "Garfa", "Purbachal Shakti Sangha", "Garfa Main Road"], ["IV", "Garfa", "Madhya Garfa Sarbojanin", "Garfa"], ["IV", "Garfa", "Kalitala Sporting", "Garfa"], ["IV", "Dhakuria", "Babu Bagan", "Station Road, Dhakuria"], ["IV", "Dhakuria", "Saraswati Sammilani", "Dhakuria"], ["IV", "Selimpur", "Selimpur Jagaran", "Selimpur"], ["IV", "Selimpur", "Aikatan", "Selimpur"], ["IV", "Jadavpur", "Sahdnagar Sarbojanin", "EM Bye Pass Connector"], ["IV", "Jadavpur", "Jadavpur (Sarbojanin)", "Jadavpur"], ["IV", "Santoshpur", "South Avenue / Santoshpur Avenue", "Santoshpur"], ["IV", "Santoshpur", "Lake Pally", "Santoshpur"], ["IV", "Santoshpur", "Purba Rajpur", "Santoshpur"], ["IV", "Santoshpur", "Avenue Pally Mangal", "Santoshpur"], ["IV", "Baghajatin", "Rabindra Pally Sarbojanin", "Baghajatin Station Road"], ["IV", "Baghajatin", "Vidyasagar Central Club", "Baghajatin"], ["IV", "Baghajatin", "Kendua Santi Sangha", "Baghajatin"], ["IV", "Baghajatin", "Patuli Sarbojanin", "Baghajatin"], ["IV", "Patuli", "Baishnab Ghata Patuli", "EM Bypass Link Road"], ["IV", "Kanungo Park", "Kanungo Park Sarbojanin", "near Garia Traffic Guard"], ["IV", "Garia", "Naba Durga", "Garia Station Road"], ["IV", "Sonarpur", "Sonarpur PS area Sarbojanin", "Sonarpur Station Road"], ["IV", "Mukundapur", "R.N. Tagore Memorial Hospital area", "EM Bypass"], ["IV", "Mukundapur", "Mukundapur Sarbojanin", "EM Bypass"], ["IV", "EM Bypass", "Yatra Suru Sangha", "EM Bypass Link Road"], ["IV", "EM Bypass", "Kalyan Sangha", "EM Bypass Link Road"]];
+
+    // ================================================================
+    // 2. GEOCODED OVERRIDES
+    // ================================================================
+    const OVERRIDES = {"Bagbazar Sarbojanin": [22.6044897, 88.365615], "College Square": [22.5745279, 88.3644724], "Kumartuli Park": [22.5989827, 88.3614663], "Telenga Bagan": [22.5949468, 88.3853031], "Ekdalia Evergreen": [22.5212187, 88.3665629], "Singhi Park Sarbojanin": [22.5209489, 88.3627281], "Suruchi Sangha": [22.5089855, 88.3339522], "Maddox Square": [22.526538, 88.3548346], "Mudiali Club": [22.510194, 88.3463122], "95 Pally": [22.508235, 88.3627602], "Naktala Udayan Sangha (45)": [22.4742929, 88.3665898], "Behala Chowrasta": [22.487157, 88.313137], "Khidderpore Sarbojanin": [22.5389416, 88.324929]};
+
+    // ================================================================
+    // 3. LOCALITY COORDS
+    // ================================================================
+    const LOCALITY_COORDS = {"cossipore": [22.6235612, 88.3724567], "paikpara": [22.6157258, 88.3873536], "tala": [22.6092934, 88.3797054], "belgachia": [22.6038991, 88.3844298], "bagbazar": [22.6038115, 88.3679355], "shyambazar": [22.5982031, 88.3686866], "ultadanga": [22.5944516, 88.3835325], "kumartuli": [22.6000017, 88.3612679], "sovabazar": [22.5981676, 88.3639986], "ahiritola": [22.5943514, 88.3548955], "nimtala": [22.5922886, 88.3566241], "kankurgachi": [22.5802167, 88.3905869], "beadon st": [22.589321, 88.3674865], "manicktala": [22.5863743, 88.376133], "jorasanko": [22.583199, 88.3567163], "college st": [22.5731147, 88.3623945], "sealdah": [22.567792, 88.3710203], "bowbazar": [22.5663214, 88.3599007], "beliaghata": [22.5629114, 88.3962844], "taltala": [22.561418, 88.3583706], "park street": [22.5541098, 88.351357], "park circus": [22.5381885, 88.372213], "bhowanipur": [22.5332356, 88.3459362], "ballygunge": [22.5280352, 88.3659083], "dover lane": [22.5224384, 88.3625564], "gariahat": [22.5183364, 88.3656574], "lake rd": [22.5129671, 88.3489062], "lake gardens": [22.5057437, 88.3567163], "jodhpur park": [22.5050586, 88.3623379], "chetla": [22.5158103, 88.3331781], "tollygunge circular rd": [22.5046855, 88.3377487], "kalighat": [22.516951, 88.3458699], "garden reach": [22.5485456, 88.2876393], "khidderpore": [22.5371921, 88.3230566], "alipore": [22.5251784, 88.3308634], "rashbehari": [22.5208696, 88.3723758], "tollygunge": [22.4986357, 88.3453906], "regent park": [22.4850714, 88.3520696], "netajinagar": [22.48077, 88.3576786], "naktala": [22.4730953, 88.3688527], "karunamoyee": [22.4838004, 88.3379329], "haridevpur": [22.479414, 88.3355732], "putiary": [22.4698234, 88.34238], "bansdroni": [22.4707774, 88.3617951], "boral": [22.4460661, 88.3713095], "kamalgachi": [22.4495273, 88.3955409], "n.r. avenue": [22.5015719, 88.3209437], "behala": [22.5015719, 88.3209437], "barisha": [22.4854866, 88.3201185], "thakurpukur": [22.4605636, 88.3066631], "james long sarani": [22.4861318, 88.3150538], "parnashree": [22.5105942, 88.3051657], "ballygunge/em bypass": [22.5280352, 88.3659083], "kasba": [22.5195362, 88.3827505], "garfa": [22.5050719, 88.3771495], "dhakuria": [22.5104166, 88.3710975], "selimpur": [22.5058664, 88.3688527], "jadavpur": [22.4954988, 88.3709008], "santoshpur": [22.4892926, 88.3887629], "baghajatin": [22.4814642, 88.3864445], "patuli": [22.4714457, 88.3844319], "kanungo park": [22.4679851, 88.379166], "garia": [22.4660129, 88.3928446], "sonarpur": [22.4473303, 88.3919562], "mukundapur": [22.4945845, 88.4080261], "em bypass": [22.5219378, 88.3978542], "bhowanipur/rashbehari": [22.5332356, 88.3459362]};
+
+    function hashOffset(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) & 0xffffffff; }
+      const a = ((h & 0xffff) / 0xffff) - 0.5;
+      const b = (((h >> 16) & 0xffff) / 0xffff) - 0.5;
+      return [a * 0.007, b * 0.007];
+    }
+    function getCoordsForLocality(locality, seed) {
+      const key = locality.toLowerCase().trim();
+      const center = LOCALITY_COORDS[key] || [22.555, 88.365];
+      const [dx, dy] = hashOffset(seed);
+      return [center[0] + dx, center[1] + dy];
+    }
+
+    // ================================================================
+    // 4. BUILD PANDALS
+    // ================================================================
+    const pandals = RAW_PANDALS.map(([zone, locality, name, road]) => {
+      let lat, lng, verified;
+      if (OVERRIDES[name]) { [lat, lng] = OVERRIDES[name]; verified = true; }
+      else { [lat, lng] = getCoordsForLocality(locality, name + '|' + road); verified = false; }
+      return { zone, locality, name, road, lat, lng, verified };
+    });
+
+    const verifiedCount = pandals.filter(p => p.verified).length;
+    const dqBanner = document.getElementById('dqBanner');
+    const DQ_DISMISSED_KEY = 'pujoMapper_dqDismissed_v1';
+
+    if (!localStorage.getItem(DQ_DISMISSED_KEY)) {
+      dqBanner.innerHTML = `
+        <button class="close-dq" id="closeDq" aria-label="Close">✕</button>
+        ⚠️ ${verifiedCount} of ${pandals.length} pandals have a precisely geocoded pin (red). The rest (${pandals.length - verifiedCount}, orange) are placed at their locality's centroid, not their exact gate — treat those as "somewhere in this neighbourhood," not turn-by-turn accurate.
+      `;
+      dqBanner.classList.add('visible');
+
+      document.getElementById('closeDq').addEventListener('click', () => {
+        dqBanner.classList.remove('visible');
+        localStorage.setItem(DQ_DISMISSED_KEY, '1');
+      });
+    }
+
+    // ================================================================
+    // 5. TRANSIT DATA
+    // ================================================================
+    const LINE_COLORS = { blue:'#007aff', green:'#00b050', purple:'#9c27b0', orange:'#ff6d00', yellow:'#ffc400' };
+    const LINE_NAMES = { blue:'Blue Line', green:'Green Line (East-West)', purple:'Purple Line', orange:'Orange Line', yellow:'Yellow Line (Airport)' };
+
+    const transitData = [{"type": "metro", "line": "blue", "name": "Dakshineswar", "lat": 22.653971, "lng": 88.363724}, {"type": "metro", "line": "blue", "name": "Baranagar", "lat": 22.653529, "lng": 88.378873}, {"type": "metro", "line": "blue", "name": "Noapara", "lat": 22.63972, "lng": 88.39389, "interchange": "yellow"}, {"type": "metro", "line": "blue", "name": "Dum Dum", "lat": 22.62111, "lng": 88.39278}, {"type": "metro", "line": "blue", "name": "Belgachhia", "lat": 22.60583, "lng": 88.38639}, {"type": "metro", "line": "blue", "name": "Shyambazar", "lat": 22.601313, "lng": 88.372586}, {"type": "metro", "line": "blue", "name": "Shobhabazar Sutanuti", "lat": 22.596029, "lng": 88.365285}, {"type": "metro", "line": "blue", "name": "Girish Park", "lat": 22.587143, "lng": 88.363083}, {"type": "metro", "line": "blue", "name": "Mahatma Gandhi Road", "lat": 22.580858, "lng": 88.361401}, {"type": "metro", "line": "blue", "name": "Central", "lat": 22.57247, "lng": 88.358788}, {"type": "metro", "line": "blue", "name": "Chandni Chowk", "lat": 22.566796, "lng": 88.354137}, {"type": "metro", "line": "blue", "name": "Esplanade", "lat": 22.56444, "lng": 88.35167, "interchange": "green"}, {"type": "metro", "line": "blue", "name": "Park Street", "lat": 22.555, "lng": 88.35028}, {"type": "metro", "line": "blue", "name": "Maidan", "lat": 22.54944, "lng": 88.34889}, {"type": "metro", "line": "blue", "name": "Rabindra Sadan", "lat": 22.54139, "lng": 88.34722}, {"type": "metro", "line": "blue", "name": "Netaji Bhavan", "lat": 22.53333, "lng": 88.34611}, {"type": "metro", "line": "blue", "name": "Jatin Das Park", "lat": 22.524262, "lng": 88.346489}, {"type": "metro", "line": "blue", "name": "Kalighat", "lat": 22.516652, "lng": 88.346003}, {"type": "metro", "line": "blue", "name": "Rabindra Sarobar", "lat": 22.50722, "lng": 88.34556}, {"type": "metro", "line": "blue", "name": "Mahanayak Uttam Kumar", "lat": 22.49472, "lng": 88.345}, {"type": "metro", "line": "blue", "name": "Netaji", "lat": 22.480976, "lng": 88.346}, {"type": "metro", "line": "blue", "name": "Masterda Surya Sen", "lat": 22.473521, "lng": 88.360871}, {"type": "metro", "line": "blue", "name": "Gitanjali", "lat": 22.4699, "lng": 88.3608}, {"type": "metro", "line": "blue", "name": "Kavi Nazrul", "lat": 22.4646, "lng": 88.3623}, {"type": "metro", "line": "blue", "name": "Shahid Khudiram", "lat": 22.465972, "lng": 88.39167}, {"type": "metro", "line": "blue", "name": "Kavi Subhash", "lat": 22.47194, "lng": 88.39806, "interchange": "orange"}, {"type": "metro", "line": "green", "name": "Howrah Maidan", "lat": 22.581998, "lng": 88.332994}, {"type": "metro", "line": "green", "name": "Howrah", "lat": 22.584454, "lng": 88.340578}, {"type": "metro", "line": "green", "name": "Mahakaran", "lat": 22.571189, "lng": 88.350106}, {"type": "metro", "line": "green", "name": "Sealdah", "lat": 22.567207, "lng": 88.371497}, {"type": "metro", "line": "green", "name": "Phoolbagan", "lat": 22.57214, "lng": 88.390282}, {"type": "metro", "line": "green", "name": "Salt Lake Stadium", "lat": 22.57306, "lng": 88.40306}, {"type": "metro", "line": "green", "name": "Bengal Chemical", "lat": 22.580076, "lng": 88.401283}, {"type": "metro", "line": "green", "name": "City Center", "lat": 22.587069, "lng": 88.407875}, {"type": "metro", "line": "green", "name": "Central Park", "lat": 22.590437, "lng": 88.415605}, {"type": "metro", "line": "green", "name": "Karunamoyee", "lat": 22.586435, "lng": 88.421515}, {"type": "metro", "line": "green", "name": "Salt Lake Sector-V", "lat": 22.581318, "lng": 88.429822}, {"type": "metro", "line": "purple", "name": "Joka", "lat": 22.452244, "lng": 88.301751}, {"type": "metro", "line": "purple", "name": "Thakurpukur", "lat": 22.464261, "lng": 88.307555}, {"type": "metro", "line": "purple", "name": "Behala Sakherbazar", "lat": 22.474611, "lng": 88.309991}, {"type": "metro", "line": "purple", "name": "Behala Chowrasta", "lat": 22.487529, "lng": 88.313426}, {"type": "metro", "line": "purple", "name": "Behala Bazar", "lat": 22.498929, "lng": 88.317354}, {"type": "metro", "line": "purple", "name": "Taratala", "lat": 22.508165, "lng": 88.320563}, {"type": "metro", "line": "purple", "name": "Majerhat", "lat": 22.5191, "lng": 88.3234}, {"type": "metro", "line": "orange", "name": "Satyajit Ray", "lat": 22.4846, "lng": 88.3926}, {"type": "metro", "line": "orange", "name": "Jyotirindra Nandi", "lat": 22.495915, "lng": 88.398667}, {"type": "metro", "line": "orange", "name": "Kavi Sukanta", "lat": 22.505262, "lng": 88.400996}, {"type": "metro", "line": "orange", "name": "Hemanta Mukhopadhyay", "lat": 22.514777, "lng": 88.401469}, {"type": "metro", "line": "orange", "name": "VIP Bazar", "lat": 22.5255, "lng": 88.39586}, {"type": "metro", "line": "orange", "name": "Ritwik Ghatak", "lat": 22.532861, "lng": 88.395765}, {"type": "metro", "line": "orange", "name": "Barun Sengupta", "lat": 22.5439, "lng": 88.4022}, {"type": "metro", "line": "orange", "name": "Beleghata", "lat": 22.550703, "lng": 88.404094}, {"type": "metro", "line": "yellow", "name": "Dum Dum Cantonment", "lat": 22.638, "lng": 88.4123}, {"type": "metro", "line": "yellow", "name": "Jessore Road", "lat": 22.639514, "lng": 88.429777}, {"type": "metro", "line": "yellow", "name": "Jai Hind (Airport)", "lat": 22.64619, "lng": 88.43591}, {"type": "train", "name": "Howrah Station", "lat": 22.583, "lng": 88.342}, {"type": "train", "name": "Sealdah Station", "lat": 22.567792, "lng": 88.37102}, {"type": "train", "name": "Park Circus Rly", "lat": 22.5423, "lng": 88.3697}, {"type": "train", "name": "Ballygunge Junction", "lat": 22.519377, "lng": 88.372135}, {"type": "train", "name": "Dhakuria", "lat": 22.5083, "lng": 88.3762}, {"type": "train", "name": "Jadavpur Rly", "lat": 22.4963, "lng": 88.3712}, {"type": "train", "name": "Bagha Jatin Rly", "lat": 22.4844, "lng": 88.3762}, {"type": "train", "name": "New Garia Rly", "lat": 22.472, "lng": 88.3956}, {"type": "train", "name": "Garia Rly", "lat": 22.4623, "lng": 88.3908}, {"type": "train", "name": "Narendrapur Halt", "lat": 22.437, "lng": 88.42}, {"type": "train", "name": "Sonarpur Junction", "lat": 22.4245, "lng": 88.4304}, {"type": "train", "name": "Baruipur Junction", "lat": 22.3559, "lng": 88.4322}, {"type": "train", "name": "Dum Dum Junction", "lat": 22.6197, "lng": 88.4211}, {"type": "train", "name": "New Alipore Rly", "lat": 22.5293, "lng": 88.3243}, {"type": "train", "name": "Majerhat Rly", "lat": 22.5195, "lng": 88.322},
+
+    {"type": "bus", "name": "Babughat Terminus", "lat": 22.5623, "lng": 88.3374},
+    {"type": "bus", "name": "Esplanade Bus Terminus", "lat": 22.561168, "lng": 88.349052},
+    {"type": "bus", "name": "Howrah Bus Stand", "lat": 22.582, "lng": 88.342},
+    {"type": "bus", "name": "Sealdah Bus", "lat": 22.567792, "lng": 88.37102},
+    {"type": "bus", "name": "College Street / College Square", "lat": 22.5735, "lng": 88.3627},
+    {"type": "bus", "name": "Shyambazar 5-Point", "lat": 22.5975, "lng": 88.3739},
+    {"type": "bus", "name": "Ultadanga Bus", "lat": 22.5936, "lng": 88.3921},
+    {"type": "bus", "name": "Nagerbazar", "lat": 22.6183, "lng": 88.3931},
+    {"type": "bus", "name": "Baguiati", "lat": 22.6153, "lng": 88.4176},
+    {"type": "bus", "name": "Dunlop More", "lat": 22.648, "lng": 88.3766},
+    {"type": "bus", "name": "Belgharia", "lat": 22.6474, "lng": 88.3706},
+    {"type": "bus", "name": "Barrackpore", "lat": 22.7654, "lng": 88.3739},
+    {"type": "bus", "name": "NSCBI Airport Gate", "lat": 22.6549, "lng": 88.4467},
+    {"type": "bus", "name": "Park Circus 7-Point", "lat": 22.5423, "lng": 88.3711},
+    {"type": "bus", "name": "Golpark Junction", "lat": 22.5183, "lng": 88.3625},
+    {"type": "bus", "name": "Gariahat Market Bus", "lat": 22.520092, "lng": 88.366119},
+    {"type": "bus", "name": "Rashbehari / Deshapran Sasmal Rd", "lat": 22.5063, "lng": 88.3568},
+    {"type": "bus", "name": "Tollygunge Bus", "lat": 22.49472, "lng": 88.345},
+    {"type": "bus", "name": "Kasba Bus", "lat": 22.5185, "lng": 88.3785},
+    {"type": "bus", "name": "Jadavpur 8B Stand", "lat": 22.495671, "lng": 88.370545},
+    {"type": "bus", "name": "Garia More", "lat": 22.4646, "lng": 88.3925},
+    {"type": "bus", "name": "Behala Chowrasta Bus", "lat": 22.487157, "lng": 88.313137},
+    {"type": "bus", "name": "Thakurpukur Bus", "lat": 22.464261, "lng": 88.307555},
+    {"type": "bus", "name": "Joka Bus", "lat": 22.452244, "lng": 88.301751},
+    {"type": "bus", "name": "Alipore / Judges Court", "lat": 22.5346, "lng": 88.3308},
+    {"type": "bus", "name": "Khidderpore Bus", "lat": 22.5395, "lng": 88.3247},
+    {"type": "bus", "name": "Garden Reach / Metiabruz", "lat": 22.5375, "lng": 88.2975},
+    {"type": "bus", "name": "Ruby / EM Bypass", "lat": 22.514, "lng": 88.402},
+    {"type": "bus", "name": "Science City Bus", "lat": 22.5237, "lng": 88.3985},
+    {"type": "bus", "name": "Chingrighata", "lat": 22.5751, "lng": 88.4177},
+    {"type": "bus", "name": "Karunamoyee Bus (Salt Lake)", "lat": 22.5864, "lng": 88.4215},
+    {"type": "bus", "name": "Salt Lake Sector V / Wipro More", "lat": 22.5776, "lng": 88.431},
+    {"type": "bus", "name": "New Town Bus", "lat": 22.5851, "lng": 88.4645},
+    {"type": "bus", "name": "VIP Road / Airport 1 No Gate", "lat": 22.6284, "lng": 88.439},
+    {"type": "bus", "name": "Dhakuria Bus", "lat": 22.5082, "lng": 88.3761},
+    {"type": "bus", "name": "Santoshpur Bus", "lat": 22.488, "lng": 88.383},
+    {"type": "bus", "name": "Beleghata Bus", "lat": 22.5507, "lng": 88.4041},
+    {"type": "bus", "name": "Sonarpur Bus", "lat": 22.4245, "lng": 88.4304},
+    {"type": "bus", "name": "Baruipur Bus", "lat": 22.3559, "lng": 88.4322},
+    {"type": "bus", "name": "Narendrapur More", "lat": 22.437, "lng": 88.42},
+
+    {"type": "bus", "name": "Kestopur", "lat": 22.6069, "lng": 88.4055},
+    {"type": "bus", "name": "Lake Town", "lat": 22.6067, "lng": 88.3994},
+    {"type": "bus", "name": "Bangur Avenue", "lat": 22.608, "lng": 88.4009},
+    {"type": "bus", "name": "Birati More", "lat": 22.6616, "lng": 88.4231},
+    {"type": "bus", "name": "Madhyamgram", "lat": 22.7003, "lng": 88.4465},
+    {"type": "bus", "name": "Barasat Bus Stand", "lat": 22.7221, "lng": 88.4802},
+    {"type": "bus", "name": "Chinar Park", "lat": 22.6125, "lng": 88.4547},
+    {"type": "bus", "name": "Manicktala Bus", "lat": 22.5864, "lng": 88.3761},
+    {"type": "bus", "name": "Beadon Street Bus", "lat": 22.5893, "lng": 88.3675},
+    {"type": "bus", "name": "Amherst Street Bus", "lat": 22.5858, "lng": 88.3646},
+    {"type": "bus", "name": "Rajabazar Bus", "lat": 22.5758, "lng": 88.374},
+    {"type": "bus", "name": "Kankurgachi Bus", "lat": 22.5755, "lng": 88.3887},
+    {"type": "bus", "name": "Hazra Bus", "lat": 22.5227, "lng": 88.3465},
+    {"type": "bus", "name": "Bhowanipur Bus", "lat": 22.5332, "lng": 88.3459},
+    {"type": "bus", "name": "Ballygunge Bus", "lat": 22.528, "lng": 88.3659},
+    {"type": "bus", "name": "Naktala Bus", "lat": 22.4731, "lng": 88.3689},
+    {"type": "bus", "name": "Bansdroni Bus", "lat": 22.4708, "lng": 88.3618},
+    {"type": "bus", "name": "Tollygunge Phari", "lat": 22.4986, "lng": 88.3454},
+    {"type": "bus", "name": "Taratala Bus", "lat": 22.5082, "lng": 88.3206},
+    {"type": "bus", "name": "Kalighat Bus", "lat": 22.517, "lng": 88.3459},
+    {"type": "bus", "name": "Majerhat Bus", "lat": 22.5195, "lng": 88.322},
+    {"type": "bus", "name": "Metiabruz Bus", "lat": 22.568, "lng": 88.289},
+    {"type": "bus", "name": "Behala Tram Depot", "lat": 22.4989, "lng": 88.3175},
+    {"type": "bus", "name": "Burrabazar", "lat": 22.5765, "lng": 88.3518}
+    ];
+
+    // ================================================================
+    // 5b. BUS ROUTES (for reverse index)
+    // ================================================================
+    const busRoutesData = [
+      { route: '3',     stops: ['Khidderpore Bus', 'Alipore / Judges Court', 'Hazra Bus', 'Park Street', 'Esplanade Bus Terminus', 'Sealdah Bus'] },
+      { route: '12',    stops: ['Esplanade Bus Terminus', 'Rajabazar Bus', 'Manicktala Bus', 'Kankurgachi Bus', 'Beleghata Bus'] },
+      { route: '15',    stops: ['Ultadanga Bus', 'Shyambazar 5-Point', 'College Street / College Square', 'Howrah Bus Stand'] },
+      { route: '24',    stops: ['Tollygunge Phari', 'Rashbehari / Deshapran Sasmal Rd', 'Hazra Bus', 'Bhowanipur Bus', 'Park Street', 'Esplanade Bus Terminus'] },
+      { route: '34',    stops: ['Ballygunge Bus', 'Gariahat Market Bus', 'Golpark Junction', 'Dhakuria Bus', 'Jadavpur 8B Stand', 'Garia More'] },
+      { route: '45',    stops: ['Howrah Bus Stand', 'Burrabazar', 'Amherst Street Bus', 'Beadon Street Bus', 'Manicktala Bus', 'Belgharia'] },
+      { route: '78',    stops: ['Bansdroni Bus', 'Naktala Bus', 'Garia More', 'Sonarpur Bus', 'Baruipur Bus'] },
+      { route: 'AC-1',  stops: ['Jadavpur 8B Stand', 'Tollygunge Phari', 'Rashbehari / Deshapran Sasmal Rd', 'Esplanade Bus Terminus', 'Howrah Bus Stand'] },
+      { route: 'AC-2',  stops: ['Barasat Bus Stand', 'Madhyamgram', 'Birati More', 'NSCBI Airport Gate', 'Baguiati', 'Kestopur', 'Lake Town', 'Ultadanga Bus', 'Shyambazar 5-Point', 'College Street / College Square', 'Howrah Bus Stand'] },
+      { route: 'AC-4',  stops: ['Behala Tram Depot', 'Behala Chowrasta Bus', 'Khidderpore Bus', 'Alipore / Judges Court', 'Park Street', 'Esplanade Bus Terminus', 'Howrah Bus Stand'] },
+      { route: 'AC-10', stops: ['Howrah Bus Stand', 'Esplanade Bus Terminus', 'Park Street', 'Rashbehari / Deshapran Sasmal Rd', 'Tollygunge Phari', 'Jadavpur 8B Stand', 'Garia More'] },
+      { route: 'E-1',   stops: ['Jadavpur 8B Stand', 'Dhakuria Bus', 'Golpark Junction', 'Rashbehari / Deshapran Sasmal Rd', 'Park Street', 'Esplanade Bus Terminus', 'Howrah Bus Stand'] },
+      { route: '1',     stops: ['Khidderpore Bus', 'Alipore / Judges Court', 'Rashbehari / Deshapran Sasmal Rd', 'Gariahat Market Bus', 'Kasba Bus', 'Ruby / EM Bypass'] },
+      { route: 'C8',    stops: ['Barasat Bus Stand', 'Madhyamgram', 'Birati More', 'NSCBI Airport Gate', 'Baguiati', 'Kestopur', 'Ultadanga Bus', 'Esplanade Bus Terminus'] },
+      { route: 'C37',   stops: ['Joka Bus', 'Thakurpukur Bus', 'Behala Chowrasta Bus', 'Khidderpore Bus', 'Esplanade Bus Terminus', 'Howrah Bus Stand'] },
+      { route: 'C42',   stops: ['NSCBI Airport Gate', 'Baguiati', 'Kestopur', 'Lake Town', 'Ultadanga Bus', 'Sealdah Bus', 'Esplanade Bus Terminus', 'Howrah Bus Stand'] },
+      { route: 'D17',   stops: ['Garia More', 'Jadavpur 8B Stand', 'Rashbehari / Deshapran Sasmal Rd', 'Park Street', 'Esplanade Bus Terminus'] },
+      { route: 'S-71',  stops: ['Belgharia', 'Dunlop More', 'Shyambazar 5-Point', 'College Street / College Square', 'Esplanade Bus Terminus', 'Babughat Terminus'] },
+      { route: 'S-12',  stops: ['Howrah Bus Stand', 'Esplanade Bus Terminus', 'Shyambazar 5-Point', 'Belgharia', 'Dunlop More', 'Barrackpore'] },
+      { route: 'VS-2',  stops: ['Howrah Bus Stand', 'Esplanade Bus Terminus', 'Park Street', 'Rashbehari / Deshapran Sasmal Rd', 'Gariahat Market Bus', 'Science City Bus', 'NSCBI Airport Gate'] },
+      { route: 'C-26',  stops: ['Behala Chowrasta Bus', 'Taratala Bus', 'Alipore / Judges Court', 'Esplanade Bus Terminus', 'Sealdah Bus', 'Chingrighata', 'Karunamoyee Bus (Salt Lake)', 'Salt Lake Sector V / Wipro More'] },
+      { route: 'M-4A',  stops: ['Thakurpukur Bus', 'Behala Chowrasta Bus', 'Alipore / Judges Court', 'Park Street', 'Esplanade Bus Terminus', 'Chingrighata', 'New Town Bus'] },
+      { route: 'C-8',   stops: ['Barasat Bus Stand', 'Madhyamgram', 'Birati More', 'NSCBI Airport Gate', 'Chinar Park', 'New Town Bus', 'Salt Lake Sector V / Wipro More'] },
+      { route: 'S-15',  stops: ['Nagerbazar', 'Bangur Avenue', 'Lake Town', 'Kestopur', 'Ultadanga Bus', 'Manicktala Bus', 'College Street / College Square'] },
+      { route: 'S-19',  stops: ['Birati More', 'Nagerbazar', 'Belgachhia', 'Manicktala Bus', 'Sealdah Bus'] },
+      { route: 'AC-20', stops: ['Chinar Park', 'Kestopur', 'Karunamoyee Bus (Salt Lake)', 'Science City Bus', 'Ruby / EM Bypass', 'Garia More'] },
+      { route: 'M-7',   stops: ['Barasat Bus Stand', 'Chinar Park', 'New Town Bus', 'Salt Lake Sector V / Wipro More', 'Karunamoyee Bus (Salt Lake)', 'Chingrighata'] },
+      { route: '25',    stops: ['Kalighat Bus', 'Hazra Bus', 'Bhowanipur Bus', 'Park Street', 'Esplanade Bus Terminus'] },
+      { route: '26',    stops: ['Ballygunge Bus', 'Golpark Junction', 'Gariahat Market Bus', 'Ballygunge Bus'] },
+    ];
+
+    const stopToRoutes = {};
+    busRoutesData.forEach(r => {
+      r.stops.forEach(stopName => {
+        if (!stopToRoutes[stopName]) stopToRoutes[stopName] = [];
+        if (!stopToRoutes[stopName].includes(r.route)) stopToRoutes[stopName].push(r.route);
+      });
+    });
+
+    // ================================================================
+    // 6. MAP INIT — zoom control moved below the top-left brand pill
+    // ================================================================
+    const map = L.map('map', {
+      center: [22.53, 88.355],
+      zoom: 12,
+      zoomControl: false,          // default top-left is hidden behind brand
+      fadeAnimation: true,
+      attributionControl: true
+    });
+    L.control.zoom({ position: 'topleft' }).addTo(map);  // same position, pushed down via CSS
+
+    L.tileLayer('https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=FuBbFb19i0rvOsVhEYuj', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // ================================================================
+    // 7. PANDAL MARKERS
+    // ================================================================
+    function pandalIcon(verified) {
+      return L.divIcon({
+        className: '',
+        html: `<div class="pandal-pin${verified ? '' : ' approx'}"><span class="emoji-wrap">🛕</span></div>`,
+        iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -30]
+      });
+    }
+
+    function buildPandalPopup(p) {
+      const safeName = p.name.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      return `
+        <strong>${p.name}</strong><br/>
+        <span style="color:#6c6c70;">${p.locality}</span><br/>
+        <span style="font-size:0.8rem; color:#8e8e93;">📍 ${p.road}</span><br/>
+        <span style="font-size:0.7rem; background:#f2f2f7; padding:2px 10px; border-radius:40px; display:inline-block; margin-top:4px;">Zone ${p.zone}</span>
+        <span class="badge-verified ${p.verified ? 'yes' : 'no'}">${p.verified ? '✓ Geocoded' : '≈ Approximate (locality only)'}</span>
+        <div class="nav-options">
+          <div class="nav-options-title">Navigate via:</div>
+          <div class="nav-btn-row">
+            <button class="nav-btn" data-mode="bus" data-lat="${p.lat}" data-lng="${p.lng}" data-name="${safeName}">
+              <i class="fas fa-bus"></i> Bus
+            </button>
+            <button class="nav-btn" data-mode="train" data-lat="${p.lat}" data-lng="${p.lng}" data-name="${safeName}">
+              <i class="fas fa-train"></i> Train
+            </button>
+            <button class="nav-btn" data-mode="metro" data-lat="${p.lat}" data-lng="${p.lng}" data-name="${safeName}">
+              <i class="fas fa-subway"></i> Metro
+            </button>
+            <button class="nav-btn nav-btn-car" data-mode="car" data-lat="${p.lat}" data-lng="${p.lng}" data-name="${safeName}">
+              <i class="fas fa-car"></i> Car
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function createPandalMarker(p) {
+      const marker = L.marker([p.lat, p.lng], { icon: pandalIcon(p.verified) })
+        .bindPopup(buildPandalPopup(p), { maxWidth: 320, minWidth: 220 });
+      marker.pandalData = p;
+      marker.on('popupopen', (e) => {
+        const el = e.popup.getElement();
+        if (!el) return;
+        el.querySelectorAll('.nav-btn').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            handleNavClick(btn);
+          });
+        });
+      });
+      return marker;
+    }
+
+    const markerMap = new Map();
+    const allPandalMarkers = [];
+    pandals.forEach(p => {
+      const marker = createPandalMarker(p);
+      const key = `${p.name}|${p.locality}|${p.zone}`;
+      markerMap.set(key, marker);
+      allPandalMarkers.push(marker);
+    });
+
+    const pandalLayer = L.markerClusterGroup({
+      maxClusterRadius: 45, spiderfyOnMaxZoom: true, showCoverageOnHover: false, zoomToBoundsOnClick: true,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div style="background:#d32f2f;color:#fff;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid #fff;box-shadow:0 4px 16px rgba(211,47,47,0.4);">${count}</div>`,
+          className: '', iconSize: [36, 36], iconAnchor: [18, 18]
+        });
+      }
+    });
+
+    function updateMapMarkers(filterText = '', zone = 'all') {
+      pandalLayer.clearLayers();
+      const filtered = pandals.filter(p => {
+        const matchName = p.name.toLowerCase().includes(filterText.toLowerCase()) || p.locality.toLowerCase().includes(filterText.toLowerCase());
+        const matchZone = zone === 'all' || p.zone === zone;
+        return matchName && matchZone;
+      });
+      filtered.forEach(p => {
+        const key = `${p.name}|${p.locality}|${p.zone}`;
+        const marker = markerMap.get(key);
+        if (marker) pandalLayer.addLayer(marker);
+      });
+      if (filtered.length > 0) {
+        const bounds = L.latLngBounds(filtered.map(p => [p.lat, p.lng]));
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      } else {
+        map.setView([22.53, 88.355], 12);
+      }
+    }
+
+    allPandalMarkers.forEach(m => pandalLayer.addLayer(m));
+    map.addLayer(pandalLayer);
+
+    // ================================================================
+    // 8. TRANSIT LAYERS
+    // ================================================================
+    function getMetroIcon(line) {
+      const color = LINE_COLORS[line] || '#3a3a3c';
+      return L.divIcon({ className:'', html:`<div class="transit-dot" style="background:${color};">${line.charAt(0).toUpperCase()}</div>`, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-14] });
+    }
+    function getTransitIcon(type) {
+      const label = type === 'train' ? 'T' : 'B';
+      const cls = type === 'train' ? 'transit-dot train' : 'transit-dot bus';
+      return L.divIcon({ className:'', html:`<div class="${cls}">${label}</div>`, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-14] });
+    }
+
+    const metroLayer = L.layerGroup();
+    const trainLayer = L.layerGroup();
+    const busLayer = L.layerGroup();
+
+    transitData.forEach(t => {
+      let marker;
+      if (t.type === 'metro') {
+        marker = L.marker([t.lat, t.lng], { icon: getMetroIcon(t.line) });
+        let popupHtml = `<strong>${t.name}</strong><br/><span class="line-chip" style="background:${LINE_COLORS[t.line]};">${LINE_NAMES[t.line]}</span>`;
+        if (t.interchange) popupHtml += `<br/><span style="font-size:0.72rem;color:#8e8e93;">⇄ Interchange with ${LINE_NAMES[t.interchange]}</span>`;
+        marker.bindPopup(popupHtml);
+        metroLayer.addLayer(marker);
+      } else if (t.type === 'train') {
+        marker = L.marker([t.lat, t.lng], { icon: getTransitIcon(t.type) });
+        marker.bindPopup(`<strong>${t.name}</strong><br/><span style="text-transform:capitalize;color:#6c6c70;">Suburban Rail</span>`);
+        trainLayer.addLayer(marker);
+      } else {
+        marker = L.marker([t.lat, t.lng], { icon: getTransitIcon('bus') });
+        const routes = stopToRoutes[t.name] || [];
+        let popupHtml = `<strong>${t.name}</strong><br/><span style="color:#6c6c70;">Bus Stop</span>`;
+        if (routes.length) {
+          popupHtml += `<div style="margin-top:8px;font-size:0.75rem;color:#3a3a3c;font-weight:600;">Routes:</div><div style="margin-top:2px;">${routes.map(r => `<span class="route-chip">${r}</span>`).join('')}</div>`;
+        } else {
+          popupHtml += `<div style="margin-top:6px;font-size:0.7rem;color:#8e8e93;font-style:italic;">No route data available</div>`;
+        }
+        marker.bindPopup(popupHtml);
+        busLayer.addLayer(marker);
+      }
+    });
+
+    // ================================================================
+    // 9. UI BINDINGS
+    // ================================================================
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const searchInput = document.getElementById('searchInput');
+    const zoneFilter = document.getElementById('zoneFilter');
+    const pandalListEl = document.getElementById('pandalList');
+    const pandalCountEl = document.getElementById('pandalCount');
+
+    function renderSidebarAndMap(filterText = '', zone = 'all') {
+      updateMapMarkers(filterText, zone);
+      const filtered = pandals.filter(p => {
+        const matchName = p.name.toLowerCase().includes(filterText.toLowerCase()) || p.locality.toLowerCase().includes(filterText.toLowerCase());
+        const matchZone = zone === 'all' || p.zone === zone;
+        return matchName && matchZone;
+      });
+      pandalCountEl.textContent = filtered.length;
+      if (filtered.length === 0) {
+        pandalListEl.innerHTML = `<div class="no-results"><i class="fas fa-search" style="font-size:1.8rem;opacity:0.3;margin-bottom:8px;display:block;"></i>No pandals found</div>`;
+        return;
+      }
+      let html = '';
+      filtered.forEach((p) => {
+        html += `
+          <div class="pandal-item" data-lat="${p.lat}" data-lng="${p.lng}">
+            <span class="p-zone">Zone ${p.zone}</span>
+            <span class="p-name">🛕 ${p.name}</span>
+            <span class="p-loc"><i class="fas fa-location-dot" style="font-size:0.65rem;margin-right:4px;"></i>${p.locality}</span>
+            <span class="p-road">${p.road}</span>
+            ${p.verified ? '' : '<span class="p-flag">≈ approximate location</span>'}
+          </div>
+        `;
+      });
+      pandalListEl.innerHTML = html;
+
+      document.querySelectorAll('.pandal-item').forEach(el => {
+        el.addEventListener('click', function() {
+          const lat = parseFloat(this.dataset.lat);
+          const lng = parseFloat(this.dataset.lng);
+          map.setView([lat, lng], 16);
+          pandalLayer.eachLayer(marker => {
+            const mlat = marker.getLatLng().lat, mlng = marker.getLatLng().lng;
+            if (Math.abs(mlat - lat) < 0.0001 && Math.abs(mlng - lng) < 0.0001) marker.openPopup();
+          });
+          document.querySelectorAll('.pandal-item').forEach(i => i.classList.remove('active'));
+          this.classList.add('active');
+          if (window.innerWidth <= 900) sidebar.classList.add('hidden');
+        });
+      });
+    }
+
+    searchInput.addEventListener('input', () => renderSidebarAndMap(searchInput.value, zoneFilter.value));
+    zoneFilter.addEventListener('change', () => renderSidebarAndMap(searchInput.value, zoneFilter.value));
+    sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('hidden'));
+    map.on('click', () => { if (window.innerWidth <= 900) sidebar.classList.add('hidden'); });
+
+    renderSidebarAndMap();
+
+    // ---- Transit Toggles ----
+    const toggleMetro = document.getElementById('toggleMetro');
+    const toggleTrain = document.getElementById('toggleTrain');
+    const toggleBus = document.getElementById('toggleBus');
+    const metroLegend = document.getElementById('metroLegend');
+    let metroVisible = false, trainVisible = false, busVisible = false;
+
+    function updateTransitLayers() {
+      if (metroVisible) { if (!map.hasLayer(metroLayer)) map.addLayer(metroLayer); } else { if (map.hasLayer(metroLayer)) map.removeLayer(metroLayer); }
+      if (trainVisible) { if (!map.hasLayer(trainLayer)) map.addLayer(trainLayer); } else { if (map.hasLayer(trainLayer)) map.removeLayer(trainLayer); }
+      if (busVisible) { if (!map.hasLayer(busLayer)) map.addLayer(busLayer); } else { if (map.hasLayer(busLayer)) map.removeLayer(busLayer); }
+      metroLegend.classList.toggle('visible', metroVisible);
+    }
+    toggleMetro.addEventListener('click', function() { metroVisible = !metroVisible; this.classList.toggle('active-toggle'); updateTransitLayers(); });
+    toggleTrain.addEventListener('click', function() { trainVisible = !trainVisible; this.classList.toggle('active-toggle'); updateTransitLayers(); });
+    toggleBus.addEventListener('click', function() { busVisible = !busVisible; this.classList.toggle('active-toggle'); updateTransitLayers(); });
+
+    // ================================================================
+    // 10. NAVIGATION
+    // ================================================================
+    let activeRouteLayer = null;
+    let activeHighlightLayer = null;
+
+    function clearActiveRoute() {
+      if (activeRouteLayer) { map.removeLayer(activeRouteLayer); activeRouteLayer = null; }
+      if (activeHighlightLayer) { map.removeLayer(activeHighlightLayer); activeHighlightLayer = null; }
+      hideRouteBanner();
+    }
+
+    const routeInfoBanner = document.getElementById('routeInfoBanner');
+    const routeInfoText = document.getElementById('routeInfoText');
+    const routeInfoIcon = document.getElementById('routeInfoIcon');
+    const routeClearBtn = document.getElementById('routeClearBtn');
+
+    function showRouteBanner(text, isError, isSpinner) {
+      routeInfoText.textContent = text;
+      routeInfoBanner.classList.add('visible');
+      routeInfoBanner.classList.toggle('err', !!isError);
+      routeInfoIcon.className = isSpinner ? 'fas fa-spinner fa-spin' : (isError ? 'fas fa-exclamation-triangle' : 'fas fa-route');
+      routeClearBtn.style.display = isSpinner ? 'none' : 'inline-flex';
+    }
+    function hideRouteBanner() { routeInfoBanner.classList.remove('visible'); }
+    routeClearBtn.addEventListener('click', () => clearActiveRoute());
+
+    function handleNavClick(btn) {
+      const mode = btn.dataset.mode;
+      const lat = parseFloat(btn.dataset.lat);
+      const lng = parseFloat(btn.dataset.lng);
+      const name = btn.dataset.name;
+
+      if (mode === 'car') navigateByCar(lat, lng, name);
+      else showNearestTransit(lat, lng, mode, name);
+    }
+
+    // ---- Nearest transit — shows ONLY the single nearest stop ----
+    function showNearestTransit(pLat, pLng, mode, pName) {
+      clearActiveRoute();
+
+      const candidates = transitData.filter(t => t.type === mode);
+      let nearest = null, minDist = Infinity;
+      candidates.forEach(t => {
+        const d = map.distance([pLat, pLng], [t.lat, t.lng]);
+        if (d < minDist) { minDist = d; nearest = t; }
+      });
+
+      if (!nearest) {
+        showRouteBanner(`No ${mode} stop found nearby.`, true, false);
+        return;
+      }
+
+      const modeLabel = mode === 'bus' ? 'Bus stop' : mode === 'train' ? 'Train station' : 'Metro station';
+      const distText = minDist < 1000
+        ? `${Math.round(minDist)} m`
+        : `${(minDist / 1000).toFixed(2)} km`;
+
+      activeHighlightLayer = L.layerGroup();
+
+      L.polyline([[pLat, pLng], [nearest.lat, nearest.lng]], {
+        color: '#d32f2f', weight: 3, dashArray: '6, 8', opacity: 0.85
+      }).addTo(activeHighlightLayer);
+
+      L.marker([pLat, pLng], { icon: pandalIcon(true) })
+        .bindPopup(`<strong>${pName}</strong><br/><span style="font-size:0.8rem;color:#6c6c70;">Your pandal</span>`)
+        .addTo(activeHighlightLayer);
+
+      const stopIcon = (mode === 'metro') ? getMetroIcon(nearest.line) : getTransitIcon(mode);
+
+      const stopPopup = `
+        <strong>${nearest.name}</strong><br/>
+        <span style="color:#6c6c70;">${modeLabel}</span><br/>
+        <span style="font-size:0.8rem;color:#8e8e93;">Nearest to <em>${pName}</em></span><br/>
+        <span style="font-size:0.9rem;color:#d32f2f;font-weight:700;">${distText} away</span>
+      `;
+      const stopMarker = L.marker([nearest.lat, nearest.lng], { icon: stopIcon }).bindPopup(stopPopup);
+      stopMarker.addTo(activeHighlightLayer);
+
+      L.circleMarker([nearest.lat, nearest.lng], {
+        radius: 22, color: '#007aff', weight: 2, opacity: 0.55,
+        fillColor: '#007aff', fillOpacity: 0.08
+      }).addTo(activeHighlightLayer);
+
+      activeHighlightLayer.addTo(map);
+
+      const bounds = L.latLngBounds([[pLat, pLng], [nearest.lat, nearest.lng]]);
+      map.fitBounds(bounds, { padding: [80, 80] });
+
+      setTimeout(() => stopMarker.openPopup(), 600);
+      showRouteBanner(`Nearest ${mode}: ${nearest.name} · ${distText} away`, false, false);
+    }
+
+    // ---- Car navigation ----
+    function navigateByCar(pLat, pLng, pName) {
+      clearActiveRoute();
+      if (!navigator.geolocation) {
+        showRouteBanner('Your browser does not support location access.', true, false);
+        return;
+      }
+      showRouteBanner('Getting your live location…', false, true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const uLat = pos.coords.latitude;
+          const uLng = pos.coords.longitude;
+          showRouteBanner('Fetching driving route…', false, true);
+          fetchDrivingRoute(uLat, uLng, pLat, pLng, pName);
+        },
+        (err) => {
+          console.warn('Geolocation error', err);
+          showRouteBanner('Location permission denied. Enable it and try again.', true, false);
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+      );
+    }
+
+    function fetchDrivingRoute(uLat, uLng, pLat, pLng, pName) {
+      const url = `https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${pLng},${pLat}?overview=full&geometries=geojson`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
+      fetch(url, { signal: controller.signal })
+        .then(r => r.json())
+        .then(data => {
+          clearTimeout(timeoutId);
+          if (!data.routes || !data.routes[0] || !data.routes[0].geometry) throw new Error('No route');
+          drawDrivingRoute(data.routes[0], uLat, uLng, pLat, pLng, pName, false);
+        })
+        .catch(err => {
+          clearTimeout(timeoutId);
+          console.warn('OSRM routing failed, using fallback:', err);
+          drawDrivingRoute(null, uLat, uLng, pLat, pLng, pName, true);
+        });
+    }
+
+    function drawDrivingRoute(route, uLat, uLng, pLat, pLng, pName, isFallback) {
+      activeRouteLayer = L.layerGroup();
+      let coords, distText, durText;
+
+      if (route && !isFallback) {
+        coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+        const km = (route.distance / 1000).toFixed(1);
+        const min = Math.round(route.duration / 60);
+        distText = `${km} km`;
+        durText  = `~${min} min`;
+      } else {
+        coords = [[uLat, uLng], [pLat, pLng]];
+        const m = map.distance([uLat, uLng], [pLat, pLng]);
+        distText = m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
+        durText  = 'est.';
+      }
+
+      L.polyline(coords, {
+        color: isFallback ? '#e08a1e' : '#1a73e8',
+        weight: 6, opacity: 0.85, lineCap: 'round', lineJoin: 'round',
+        dashArray: isFallback ? '10, 8' : null
+      }).addTo(activeRouteLayer);
+
+      L.circleMarker([uLat, uLng], {
+        radius: 9, color: '#fff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1
+      }).bindPopup('<strong>Your location</strong>').addTo(activeRouteLayer);
+
+      const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${uLat},${uLng}&destination=${pLat},${pLng}&travelmode=driving`;
+      const destPopup = `
+        <strong>${pName}</strong><br/>
+        🚗 ${distText} · ${durText}<br/>
+        ${isFallback ? '<span style="font-size:0.7rem;color:#b26a00;font-style:italic;">Straight-line estimate (routing service unavailable)</span><br/>' : ''}
+        <a href="${gmapsUrl}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;color:#1a73e8;font-weight:700;text-decoration:none;font-size:0.8rem;">
+          Open in Google Maps →
+        </a>
+      `;
+      L.circleMarker([pLat, pLng], {
+        radius: 11, color: '#fff', weight: 3, fillColor: '#d32f2f', fillOpacity: 1
+      }).bindPopup(destPopup).addTo(activeRouteLayer);
+
+      activeRouteLayer.addTo(map);
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [60, 60] });
+
+      const msg = isFallback
+        ? `Approx. ${distText} to ${pName} (straight line — tap pin for Google Maps)`
+        : `Driving to ${pName} · ${distText} · ${durText}`;
+      showRouteBanner(msg, isFallback, false);
+    }
+
+    // ================================================================
+    // 11. NEARBY
+    // ================================================================
+    document.getElementById('nearbyBtn').addEventListener('click', function() {
+      const fallback = map.getCenter();
+      const onSuccess = (pos) => findNearestTransit(pos.coords.latitude, pos.coords.longitude);
+      const onError = () => findNearestTransit(fallback.lat, fallback.lng);
+      if (navigator.geolocation) navigator.geolocation.getCurrentPosition(onSuccess, onError, { enableHighAccuracy: true, timeout: 5000 });
+      else onError();
+    });
+
+    function findNearestTransit(userLat, userLng) {
+      let nearest = null, minDist = Infinity;
+      const allTransit = [];
+      if (metroVisible) metroLayer.eachLayer(l => allTransit.push({ layer: l, type: 'metro' }));
+      if (trainVisible) trainLayer.eachLayer(l => allTransit.push({ layer: l, type: 'train' }));
+      if (busVisible)   busLayer.eachLayer(l => allTransit.push({ layer: l, type: 'bus' }));
+      if (allTransit.length === 0) { alert('Turn on at least one transit layer!'); return; }
+      allTransit.forEach(item => {
+        const latlng = item.layer.getLatLng();
+        const d = map.distance([userLat, userLng], latlng);
+        if (d < minDist) { minDist = d; nearest = item; }
+      });
+      if (nearest) {
+        const latlng = nearest.layer.getLatLng();
+        map.setView(latlng, 15);
+        nearest.layer.openPopup();
+        const circle = L.circle([userLat, userLng], { radius: Math.min(minDist, 500), color:'#d32f2f', fillColor:'#d32f2f', fillOpacity:0.1, weight:2 }).addTo(map);
+        setTimeout(() => map.removeLayer(circle), 2500);
+      }
+    }
+
+    console.log(`🛕 পূজো পরিক্রম · ${pandals.length} pandals (${verifiedCount} geocoded) · 🚇 ${transitData.filter(t=>t.type==='metro').length} metro · 🚆 ${transitData.filter(t=>t.type==='train').length} rail · 🚌 ${transitData.filter(t=>t.type==='bus').length} bus stops`);
+  </script>
+</body>
+</html>
